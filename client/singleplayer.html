@@ -2,16 +2,71 @@
 <head>
 	<title>KERNEL: Single Player</title>
 	<link href="style.css" rel="stylesheet" type="text/css">
+	<script src="http://code.jquery.com/jquery-1.8.1.min.js"></script>
 	<script src="lib/three.min.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
 	<script src="fonts/helvetiker_regular.typeface.js"></script>
 </head>
 <body>
 	<script>
+		var playerToMesh  ={};
+		var thisPlayer;
+		var socket = io.connect("http://localhost");
 		var camera, scene, renderer;
 		var geometry, material, mesh;
+		var oldPosition;
+		var MOVE_SPEED = 5.0;
+
+		socket.on('init', function(data) {
+			thisPlayer = addPlayer(data.id);
+		});
+		socket.on('position', function(data) {
+			if(playerToMesh[data.id] == undefined)
+				addPlayer(data.id);
+
+			setPlayerPosition(data.id, data.x, data.y);
+		});
 
 		init();
 		animate();
+
+		$(document.body).on('keydown', function(e) {
+
+			switch(e.which)
+			{
+				case 37:
+					thisPlayer.position.x -= MOVE_SPEED;
+					break;
+				case 39:
+					thisPlayer.position.x += MOVE_SPEED;
+					break;
+				case 38:
+					thisPlayer.position.y += MOVE_SPEED;
+					break;
+				case 40:
+					thisPlayer.position.y -= MOVE_SPEED;
+					break;
+			}
+		});
+
+		function setPlayerPosition(id, x, y) {
+			var player = playerToMesh[id];
+			if(player == undefined)
+				return;
+
+			player.position.x = x;
+			player.position.y = y;
+		};
+
+		function addPlayer(id) {
+			var geometry = new THREE.CubeGeometry(200, 200, 200);
+			var material = new THREE.MeshPhongMaterial({color:0xff0000, specular: 0xffffff, ambient:0xaa0000});
+			var playermesh = new THREE.Mesh(geometry, material);
+			scene.add(playermesh);
+
+			playerToMesh[id] = playermesh;
+			return playermesh;
+		};
 
 		function init() {
 			camera = new THREE.PerspectiveCamera(75, window.innerWidth/ window.innerHeight, 1, 10000);
@@ -19,8 +74,9 @@
 
 			scene = new THREE.Scene();
 
-			var spotLight = new THREE.PointLight(0x55aaaa, 100, 10000);
-			spotLight.position.set(50,50,50);
+			var spotLight = new THREE.PointLight(0xFFFFFF, 1, 1900);
+			spotLight.position.set(0,0,1000);
+
 			scene.add(spotLight);
 
 			var text3d = new THREE.TextGeometry('Hello world!',{
@@ -41,11 +97,6 @@
 			
 			scene.add(textmesh);
 
-			geometry = new THREE.CubeGeometry(200, 200, 200);
-			material = new THREE.MeshBasicMaterial({color:0x220000, wireframe: false});
-
-			mesh = new THREE.Mesh(geometry, material);
-			scene.add(mesh);
 
 			renderer = new THREE.WebGLRenderer();
 			renderer.setSize(window.innerWidth, window.innerHeight);
@@ -56,9 +107,15 @@
 		function animate() {
 			requestAnimationFrame(animate);
 			
-			mesh.rotation.x += 0.01;
-			mesh.rotation.y += 0.02;
-
+			if(thisPlayer != undefined && (oldPosition == null || oldPosition.x != thisPlayer.position.x || oldPosition.y != thisPlayer.position.y))
+			{
+				socket.emit('position', {x:thisPlayer.position.x, y:thisPlayer.position.y});
+				if(oldPosition == null)
+					oldPosition = {x:0, y:0};
+				oldPosition.x = thisPlayer.position.x;
+				oldPosition.y = thisPlayer.position.y;
+				camera.position.x = oldPosition.x;
+			}
 			renderer.render(scene, camera);
 		}
 	</script>

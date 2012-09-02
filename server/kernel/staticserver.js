@@ -1,10 +1,23 @@
-var http = require('http');
+exports.createServer = createServer;
+exports.getHTTPServer = getHTTPServer;
+
+var httpServer;
 var path = require('path');
 var fs = require('fs');
+var WEB_ROOT;
 
-var WEB_ROOT = '../client';
+function getHTTPServer() {
+	return httpServer;
+};
 
-http.createServer(function (request, response) {
+function createServer(port, root) {
+	WEB_ROOT = root;
+	httpServer = require('http').createServer(serverHandler);
+	httpServer.listen(port);
+	return this;
+};
+
+function serverHandler(request, response) {
 	
 	console.log("Request for url: "+request.url);
 
@@ -47,6 +60,4 @@ http.createServer(function (request, response) {
 			response.end();
 		}
 	});
-}).listen(1337);
-
-console.log('Server running at http://127.0.0.1:8125/');
+};
